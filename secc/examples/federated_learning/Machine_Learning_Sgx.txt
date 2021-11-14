@@ -1,0 +1,96 @@
+Highlight the information flow security and why is it a necessary thing for 
+secret data processing?
+
+What:
+We develop a formally verified information flow secure (differentially private) gradient 
+descent algorithm, a slightly simplified version of [1], 
+that does not leak any information about sensitive data (health care, credit card)
+during learning phase via side channels. Moreover, our implementation is very similar
+to the algorithm DPGDPure (eps, 0) [2], albeit ours is formally proven that 
+an adversary, obeserving the learning on secret data, cannot infer any 
+secrets via side channel. On the other hand, [2] is susceptible to the 
+floating point attack (Toby: what is the correct name of this attack?) 
+that can be used to steal a secret value (Frontal attack, CopyCat attack).
+
+
+Eventhough, we don't establish the differential privacy guarantee formally 
+--because our tool/theory at this point is not capable of formally reasoning 
+differential privacy guarantees-- 
+we emphasize that we formally establish that our implementation tracks the
+budget, adds the noise to gradients, and clips the gradient, to be in a proper range. 
+As an additional check to ensure the correctness, we generate a certificate (data) of 
+learning that can be used by any third party to audit the learning process. The 
+certificate contains enough information to ensure the auditablity.
+In addition, we establish that the system only learns
+when there is enough privacy budget. We test our implementation on a 
+(modified) boston housing dataset --we take just two columns of the 
+boston housing dataset because our model can store only two values, 
+but it can be extended, in its training dataset-- and 
+compare our result with a similar Python implementation, written using numpy.
+However, we find a mismatch between our result and the Python result. 
+Therefore, to get a fair comparison, we generate 
+synthetic data according to the equation y = theta1 * x + theta2, 
+where theta1 = 1.0 and theta2 = 0.0 (and many other values), 
+run our implementation without 
+adding any noise, or any consideration to differentially privacy,  
+and our implementation produces the value of 
+theta1 = 0.98 and theta2 = 0.10, very close to the actual
+(we conjecture that the mismatch could be because of underlying 
+floating point representation, specialised numpy algorithms, etc).
+(Report the data with noise addition)
+
+
+Cite 
+Frontal Attack: Leaking Control-Flow in SGX via the CPU Frontend (https://arxiv.org/abs/2005.11516)
+CopyCat: Controlled Instruction-Level Attacks on Enclaves (https://arxiv.org/abs/2002.08437). 
+Avoid branching on secret at any cost. It may be restrictive in the first sight, but 
+it forces to think out of the box (https://tches.iacr.org/index.php/TCHES/article/view/8298).
+
+
+Why:
+Recently, there are many machine learning 
+and deep learning applications [5] (TensorSCONE: A Secure TensorFlow Framework using Intel SGX),
+[6] (Chiron: Privacy-preserving Machine Learning as a Service) [7] (Slalom: Fast, Verifiable 
+and Private Execution of Neural Networks in Trusted Hardware) [8] 
+(Efficient Deep Learning on Multi-Source Private Data) that have 
+been developed for SGX, to trusted execution environment, to protect 
+the sensitive information leak; it is, however, shown by many researchers, studying SGX,  
+that branching or looping on a secret data could potentially undermine the 
+security of system and may leak the sensitive data (cite Frontal attack and CopyCat attack). 
+This is so severe that Intel has issued the 
+advisory [3]:
+
+"Most traditional side channels—regardless of technique—can be mitigated by applying
+all three of the following general “constant time”2 principles, listed here at a 
+high level. Software that handles secrets must follow these principles to guard 
+against side channel methods. We discuss details and examples of these principles later.
+
+    Ensure runtime is independent of secret values.
+    Ensure code access patterns3 are independent of secret values.
+    Ensure data access patterns4 are independent of secret values.
+
+These principles are conceptually simple, but sometimes can be difficult to implement
+in practice, depending on the complexity of your algorithms. Luckily, most developers
+won’t need to work on the most complex situations."
+
+In general, these principles are simple for single threaded code, but not in case of 
+multithreaded code. More importantlty, when developing a complex algorithm, e.g., 
+gradient descent, manual checks -“constant time”- cannot be enough, and we need 
+to establish the constant time guarantee formally, which is our case.  Overall, 
+in this example, we add a new dimension, i.e., information flow security 
+in machine learning algorithms training on a secret data, which to the best of 
+    our knowledge has not been considered by any machine learning researcher. 
+
+
+[1] Deep Learning with Differential Privacy https://arxiv.org/pdf/1607.00133.pdf%20
+[2] Differentially Private Simple Linear Regression https://arxiv.org/pdf/2007.05157.pdf
+[3] https://software.intel.com/content/www/us/en/develop/articles/software-security-guidance/secure-coding/mitigate-timing-side-channel-crypto-implementation.html?wapkw=branching%20on%20secret
+[4] Using Intel SGX to improve private neural network training and inference 
+(https://dl.acm.org/doi/10.1145/3384217.3386399)
+[5] TensorSCONE: A Secure TensorFlow Framework using Intel SGX  (https://arxiv.org/abs/1902.04413)
+[6] Chiron: Privacy-preserving Machine Learning as a Service (https://arxiv.org/abs/1803.05961)
+[7] Slalom: Fast, Verifiable and Private Execution of Neural Networks in Trusted Hardware (https://arxiv.org/abs/1806.03287)
+[8] https://arxiv.org/abs/1807.06689 
+
+Papers related to SGX data analysis. 
+https://software.intel.com/content/www/us/en/develop/topics/software-guard-extensions/academic-research.html?wapkw=branching%20on%20secret

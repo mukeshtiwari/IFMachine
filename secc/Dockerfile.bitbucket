@@ -1,0 +1,17 @@
+FROM ubuntu:20.04
+
+RUN apt-get -y update
+RUN apt-get -y upgrade
+
+RUN apt-get -y install apt-utils
+RUN apt-get -y install git
+RUN apt-get -yd install openjdk-11-jdk-headless
+RUN apt-get -y install openjdk-11-jdk-headless
+RUN apt-get -y install curl
+
+RUN apt-get -y clean
+
+WORKDIR /root
+RUN curl -L https://github.com/lihaoyi/mill/releases/download/0.7.4/0.7.4 > ./mill
+RUN chmod +x ./mill
+RUN ./mill version

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# to include static z3
+export PATH=.:$PATH
+./mill secc.test

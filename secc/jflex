@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+java -jar ./secc/lib/jflex-1.7.0.jar "$@"

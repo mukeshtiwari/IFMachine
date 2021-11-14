@@ -1,0 +1,46 @@
+For the current configuration (and no noise addition to the model parameters),
+it's converging towards the true theta1 = 1.0 and theta2 = 0.0
+
+Trained Parameters: Status code = 1 m = 0.904877 c = 0.064356
+Trained Parameters: Status code = 1 m = 0.905642 c = 0.063839
+Trained Parameters: Status code = 1 m = 0.906401 c = 0.063325
+Trained Parameters: Status code = 1 m = 0.907153 c = 0.062816
+Trained Parameters: Status code = 1 m = 0.907900 c = 0.062311
+Trained Parameters: Status code = 1 m = 0.908640 c = 0.061810
+Trained Parameters: Status code = 1 m = 0.909375 c = 0.061313
+Trained Parameters: Status code = 1 m = 0.910103 c = 0.060820
+Trained Parameters: Status code = 1 m = 0.910826 c = 0.060331
+Trained Parameters: Status code = 1 m = 0.911544 c = 0.059846
+Trained Parameters: Status code = 1 m = 0.912255 c = 0.059365
+Trained Parameters: Status code = 1 m = 0.912960 c = 0.058887
+Trained Parameters: Status code = 1 m = 0.913661 c = 0.058414
+Trained Parameters: Status code = 1 m = 0.914355 c = 0.057944
+Trained Parameters: Status code = 1 m = 0.915044 c = 0.057478
+Trained Parameters: Status code = 1 m = 0.915727 c = 0.057016
+Trained Parameters: Status code = 1 m = 0.916404 c = 0.056557
+Trained Parameters: Status code = 1 m = 0.917077 c = 0.056102
+Trained Parameters: Status code = 1 m = 0.917743 c = 0.055651
+Trained Parameters: Status code = 1 m = 0.918405 c = 0.055204
+Trained Parameters: Status code = 1 m = 0.919061 c = 0.054760
+Trained Parameters: Status code = 1 m = 0.919712 c = 0.054320
+Trained Parameters: Status code = 1 m = 0.920358 c = 0.053883
+Trained Parameters: Status code = 1 m = 0.920998 c = 0.053449
+Trained Parameters: Status code = 1 m = 0.921633 c = 0.053020
+Trained Parameters: Status code = 1 m = 0.922264 c = 0.052593
+Trained Parameters: Status code = 1 m = 0.922889 c = 0.052170
+
+Now, cleanup the code, write comments, write the parameter 
+handling from network, proof of the privacy (replay from 
+the papers: Google DeepMind and Harvard paper), modify 
+the code to accomodate continiously changing data (allocate 
+memory in the main function and turn the lenght into pointer), 
+run this code on some real data and see how accurate predictions 
+are with noisy laplacian. 
+
+More: if I put some bound on the input data, can I prove that 
+output will also be in some bound. Look for some papers 
+(https://www.youtube.com/watch?v=Reo5REo71GU
+https://arxiv.org/pdf/1706.08605.pdf) and see what can 
+be incorporated in SecC (and possibility of carrying 
+this work in Coq, extracting OCaml, and running it
+on machine)

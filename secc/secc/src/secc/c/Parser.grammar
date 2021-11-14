@@ -1,0 +1,345 @@
+%package "secc.c";
+%class "Parser";
+
+%import "java.util.Set";
+
+%embed {:
+    Set<String> types;
+    Set<String> preds;
+:};
+
+
+%terminals UNDERSCORE;
+%terminals BEGIN, END;
+%terminals REQUIRES, ENSURES, INVARIANT, RESOURCE, MAINTAINS, LEMMA, INDUCT, PURE, PRUNE, ATOMIC, RELY, GUARANTEE, SHARED;
+%terminals ASSUME, ASSERT, PREDICATE, CONSTANT, FUNCTION, FOLD, UNFOLD, APPLY, REWRITES, AXIOMS;
+%terminals FAILS;
+%terminals EXISTS, FORALL, OLD;
+
+%terminals VOID, CHAR, INT, STRING; // SHORT, INT, LONG, SIGNED, UNSIGNED;
+%terminals STRUCT, UNION, ENUM, TYPEDEF;
+%terminals MAP_LT, LIST_LT;
+
+%terminals RETURN, BREAK, CONTINUE;
+%terminals IF, /* THEN, */ ELSE, DO, WHILE, FOR;
+
+%terminals ID, TYPE, PRED, PARAM;
+%terminals NUM;
+
+%terminals LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE;
+%terminals POSTFIX, INCR, DECR, DOT, ARROW;
+%terminals PREFIX,  BANG, TILDE, SIZEOF;
+%terminals STAR, DIV, MOD;
+%terminals PLUS, MINUS;
+%terminals SHL, SHR;
+%terminals LT, LE, GE, GT;
+%terminals EQ, NEQ;
+%terminals AMP;
+%terminals CARET;
+%terminals PIPE;
+%terminals AND;
+%terminals OR;
+%terminals IMP;
+%terminals EQV;
+%terminals QUESTION, COLON, DCOLON, COLONEQ;
+%terminals PTO;
+%terminals ASG, ASG_OP;
+%terminals COMMA, SEMICOLON;
+
+%nonassoc IF;
+%nonassoc ELSE;
+%nonassoc LPAREN, RPAREN;
+%left LBRACK, RBRACK;
+%nonassoc UNDERSCORE;
+%left  POSTFIX, INCR, DECR, DOT, ARROW;
+%right PREFIX;
+%left  STAR, DIV, MOD;
+%left  PLUS, MINUS;
+%left  SHL, SHR;
+%left  LT, LE, GE, GT;
+%left  EQ, NEQ;
+%left  AMP;
+%left  CARET;
+%left  PIPE;
+%left  DCOLON;
+%left  PTO;
+%left  AND;
+%left  OR;
+%right IMP;
+%left  EQV;
+%right QUESTION, COLON;
+%right ASG, ASG_OP;
+%left  COMMA;
+%nonassoc EXISTS, FORALL;
+
+%typeof ID      = "String";
+%typeof STRING  = "String";
+%typeof TYPE    = "String";
+%typeof PRED    = "String";
+%typeof PARAM   = "String";
+
+%typeof NUM     = "Integer";
+%typeof ASG_OP  = "String";
+
+%typeof const   = "String";
+%typeof field   = "Field";
+%typeof param   = "Formal";
+
+%typeof type    = "Type";
+
+%typeof expr    = "Expr";
+%typeof assert  = "Assert";
+
+%typeof spec    = "Spec";
+%typeof aux     = "Aux";
+
+%typeof predid = "String";
+%typeof preddef = "PredDef";
+%typeof puredef = "PureDef";
+%typeof pureconstdef = "PureDef";
+
+%typeof local   = "Stmt";
+%typeof local1  = "Stmt";
+%typeof local2  = "Stmt";
+%typeof global  = "Global";
+%typeof global1 = "Global";
+
+%goal unit;
+
+unit = global2 *;
+
+field = type.t ID.n SEMICOLON {: return new Field(t, n, false); :}
+      | UNDERSCORE LPAREN type.t ID.n SEMICOLON RPAREN {: return new Field(t, n, true); :}
+      ;
+fields = field *;
+
+param = type.t ID.n {: return new Formal(t, n); :};
+params = param | params COMMA param;
+
+const  = ID.n;
+consts = const | consts COMMA const;
+exprs  = expr @ASG | exprs  COMMA expr;
+axioms = expr | axioms SEMICOLON expr;
+
+specs = spec *;
+
+global1
+    = TYPEDEF type.t ID.n       {: types.add(n);
+                                   return new TypeDef(t, n);    :}
+    | STRUCT  ID.n              {: return new StructDecl(n);    :}
+    | UNION   ID.n              {: return new UnionDecl(n);     :}
+    | ENUM    ID.n              {: return new EnumDecl(n);      :}
+    | STRUCT  ID.n LBRACE fields.fs RBRACE     {: return new StructDef(n, fs); :}
+    | UNION   ID.n LBRACE fields.fs RBRACE     {: return new UnionDef(n, fs);  :}
+    | ENUM         LBRACE consts.cs RBRACE     {: return new EnumDef(cs);   :}
+    | ENUM    ID.n LBRACE consts.cs RBRACE     {: return new EnumDef(n, cs);   :}
+    ;
+
+global
+    = global1.g SEMICOLON {: return (Symbol) g; :} // separate production to have an uncritical lookahead (otherwise might need to inspect whether it's a type)
+    | type.t ID.n SEMICOLON specs.ss                         {: return new VarDef(t, n, ss);     :}
+    | type.t ID.n ASG expr.e SEMICOLON specs.ss              {: return new VarDef(t, n, e, ss);  :}
+    | type.t ID.n LPAREN RPAREN SEMICOLON specs.ss           {: return new FunDef(t, n, ss); :}
+    | type.t ID.n LPAREN params.xs RPAREN SEMICOLON specs.ss {: return new FunDef(t, n, xs, ss); :}
+    | type.t ID.n LPAREN RPAREN specs.ss local1.b            {: return new FunDef(t, n, ss, b); :}
+    | type.t ID.n LPAREN params.xs RPAREN specs.ss local1.b  {: return new FunDef(t, n, xs, ss, b); :}
+    ;
+
+global2
+    = global
+    | aux.a {: return new Ghost(a);  :}
+    ;
+
+local
+    = SEMICOLON {: return Block.empty(); :}
+    | local1;
+
+local2
+    = local1
+    | aux.a {: return new Ghost(a);  :}
+    ;
+
+// locals  = local *;
+locals2 = local2 *;
+
+local1
+    = LBRACE locals2.ss RBRACE          {: return new Block(ss); :}
+    | expr.a   SEMICOLON                {: return new Atomic(a); :}
+    | RETURN   SEMICOLON                {: return Return.none(); :}
+    | RETURN expr.a SEMICOLON           {: return new Return(a); :}
+    | BREAK    SEMICOLON                {: return Break.self();  :}
+    | CONTINUE SEMICOLON                {: return Continue.self(); :}
+    | type.t ID.n SEMICOLON             {: return new VarDef(t, n);     :}
+    | type.t ID.n ASG expr.e SEMICOLON  {: return new VarDef(t, n, e);  :}
+    | IF LPAREN expr.a RPAREN local.b   {: return new If(a, b);  :}
+    | IF LPAREN expr.a RPAREN local.b ELSE local.c     {: return new If(a, b, c);   :}
+    | WHILE LPAREN expr.a RPAREN specs.ss local.b      {: return new While(a, ss, b);   :}
+    | DO local.b WHILE LPAREN expr.a RPAREN SEMICOLON  {: return new DoWhile(b, a); :}
+    | FOR LPAREN expr.a SEMICOLON expr.b SEMICOLON expr.c SEMICOLON RPAREN local.p        {: return new For(a, b, c, p); :}
+    | error SEMICOLON {: return Malformed.self(); :}
+    ;
+
+expr
+    = PREFIX | POSTFIX /* unused */
+    | LPAREN expr.e RPAREN              {: return (Symbol) e; :}
+    | ID.n                              {: return new Id(n);  :}
+    | NUM.n                             {: return new Lit(n); :}
+    | ID.n LPAREN RPAREN                {: return new FunCall(n, new Expr[]{}); :}
+    | ID.n LPAREN exprs.as RPAREN       {: return new FunCall(n, as);   :}
+    | OLD  LPAREN expr.e   RPAREN       {: return new Old(e); :}
+    | LPAREN type.t RPAREN expr.a       {: return new Cast(t, (Expr)a);       :}
+    | SIZEOF LPAREN expr.e RPAREN       {: return new SizeOfExpr((Expr)e);    :}
+    
+    | expr.a INCR  @POSTFIX             {: return new PostOp("++", a);  :}
+    | expr.a DECR  @POSTFIX             {: return new PostOp("--", a);  :}
+    | expr.a ARROW  ID.f                {: return new Arrow(a, f);      :}
+    
+    | expr.a DOT    ID.f                {: return new Dot(a, f);        :}
+    | expr.a LBRACK expr.i RBRACK       {: return new Index(a, i);      :}
+    | expr.a LBRACK expr.b COLONEQ expr.c RBRACK {: return new Update(a, b, c); :}
+    
+    | INCR  expr.a @PREFIX              {: return new PreOp("++", a);   :}
+    | DECR  expr.a @PREFIX              {: return new PreOp("--", a);   :}
+    | PLUS  expr.a @PREFIX              {: return new PreOp("+", a);    :}
+    | MINUS expr.a @PREFIX              {: return new PreOp("-", a);    :}
+    | BANG  expr.a @PREFIX              {: return new PreOp("!", a);    :}
+    | TILDE expr.a @PREFIX              {: return new PreOp("~", a);    :}
+    | STAR  expr.a @PREFIX              {: return new PreOp("*", a);    :}
+    | AMP   expr.a @PREFIX              {: return new PreOp("&", a);    :}
+    
+    | expr.a STAR   expr.b              {: return new BinOp("*", a, b); :}
+    | expr.a DIV    expr.b              {: return new BinOp("/", a, b); :}
+    | expr.a MOD    expr.b              {: return new BinOp("%", a, b); :}
+    | expr.a PLUS   expr.b              {: return new BinOp("+", a, b); :}
+    | expr.a MINUS  expr.b              {: return new BinOp("-", a, b); :}
+    | expr.a SHL    expr.b              {: return new BinOp("<<",a, b); :}
+    | expr.a SHR    expr.b              {: return new BinOp(">>",a, b); :}
+    | expr.a LT     expr.b              {: return new BinOp("<", a, b); :}
+    | expr.a LE     expr.b              {: return new BinOp("<=",a, b); :}
+    | expr.a GE     expr.b              {: return new BinOp(">=",a, b); :}
+    | expr.a GT     expr.b              {: return new BinOp(">", a, b); :}
+    | expr.a EQ     expr.b              {: return new BinOp("==",a, b); :}
+    | expr.a NEQ    expr.b              {: return new BinOp("!=",a, b); :}
+    | expr.a AMP    expr.b              {: return new BinOp("&", a, b); :}
+    | expr.a CARET  expr.b              {: return new BinOp("^", a, b); :}
+    | expr.a PIPE   expr.b              {: return new BinOp("|", a, b); :}
+    
+    | expr.a DCOLON expr.l              {: return new BinOp("::", a, l);  :}
+    
+    | expr.a AND    expr.b              {: return new BinOp("&&",a, b); :}
+    | expr.a OR     expr.b              {: return new BinOp("||",a, b); :}
+    | expr.a IMP    expr.b              {: return new BinOp("==>",a, b); :}
+    | expr.a EQV    expr.b              {: return new BinOp("<=>",a, b); :}
+    | expr.a QUESTION expr.b COLON expr.c  {: return new Question(a, b, c); :}
+    
+    | expr.a ASG    expr.b              {: return new BinOp("=", a, b); :}
+    | expr.a ASG_OP.e expr.b            {: return new BinOp("=", a, new BinOp(e.substring(0, e.length() - 1), a, b));   :}
+    
+    | expr.a COMMA  expr.b              {: return new BinOp(",", a, b); :}
+    
+    | FORALL params.ps DOT expr.a @FORALL
+    	{: return new Bind("forall", ps, a); :}
+    | EXISTS params.ps DOT expr.a @EXISTS
+    	{: return new Bind("exists", ps, a); :}
+    ;
+
+assert
+    = expr @DCOLON
+    | LPAREN assert.a RPAREN            {: return (Symbol) a; :}
+    | expr.p PTO expr.a                                 {: return new PointsTo((Expr)p, (Expr)a);    :}
+    | expr.p PTO LBRACK expr.l RBRACK expr.a            {: return new PointsTo((Expr)p, (Expr)l, (Expr)a); :}
+    | PRED.n LPAREN exprs.in RPAREN                     {: return new Chunk(n, in);   :}
+    | PRED.n LPAREN SEMICOLON exprs.out RPAREN          {: return new Chunk(n, new Expr[]{}, out); :}
+    | PRED.n LPAREN exprs.in SEMICOLON exprs.out RPAREN {: return new Chunk(n, in, out); :}
+    | assert.a AND assert.b                             {: return new And(a, b);     :}
+    | expr.a   IMP assert.b                             {: return new Cond(a, b);    :}
+    | expr.a QUESTION assert.b COLON assert.c           {: return new Cond(a, b, c); :}
+    | EXISTS params.ex DOT assert.a @EXISTS             {: return new Exists(ex, a); :}
+    ;
+
+predid
+    = ID.n {: preds.add(n); return _symbol_n; :}
+    ;
+
+preddef
+    = predid.n LPAREN RPAREN                                         {: return new PredDef(n);        :}
+    | predid.n LPAREN RPAREN assert.a                                {: return new PredDef(n, a);     :}
+    | predid.n LPAREN params.in RPAREN                               {: return new PredDef(n, in);    :}
+    | predid.n LPAREN params.in RPAREN assert.a                      {: return new PredDef(n, in, a); :}
+    | predid.n LPAREN SEMICOLON params.out RPAREN                    {: return new PredDef(n, new Formal[]{}, out);    :}
+    | predid.n LPAREN SEMICOLON params.out RPAREN assert.a           {: return new PredDef(n, new Formal[]{}, out, a); :}
+    | predid.n LPAREN params.in SEMICOLON params.out RPAREN          {: return new PredDef(n, in, out);               :}
+    | predid.n LPAREN params.in SEMICOLON params.out RPAREN assert.a {: return new PredDef(n, in, out, a);            :}
+    ;
+
+pureconstdef
+    = type.t ID.n                   {: return new PureDef(n, t);    :}
+    | type.t ID.n ASG expr.a        {: return new PureDef(n, t, a); :}
+    ;
+
+puredef
+    = type.t ID.n LPAREN params.ps RPAREN            {: return new PureDef(n, ps, t);    :}
+    | type.t ID.n LPAREN params.ps RPAREN ASG expr.a {: return new PureDef(n, ps, t, a); :}
+    ;
+
+aux
+    = UNDERSCORE LPAREN PRUNE RPAREN                 {: return Prune.self();   :}
+    | UNDERSCORE LPAREN ASSERT assert.a RPAREN       {: return new Consume(a, "assert"); :}
+    | UNDERSCORE LPAREN ASSERT assert.a STRING.m RPAREN {: return new Consume(a, m); :}
+    | UNDERSCORE LPAREN ASSUME assert.a RPAREN       {: return new Produce(a); :}
+    | UNDERSCORE LPAREN UNFOLD assert.a RPAREN       {: return new Unfold(a);  :}
+    | UNDERSCORE LPAREN FOLD   assert.a RPAREN       {: return new Fold(a);    :}
+    | UNDERSCORE LPAREN APPLY? local1.b  RPAREN      {: return new Apply(b);   :}
+    | UNDERSCORE LPAREN APPLY FORALL params.ps DOT
+                        ID.n LPAREN exprs.as RPAREN RPAREN {: return new ApplyForall(ps, new FunCall(n, as)); :}
+    | UNDERSCORE LPAREN REWRITES axioms.a RPAREN     {: return new Rules(a,false); :}
+    | UNDERSCORE LPAREN AXIOMS   axioms.a RPAREN     {: return new Rules(a,true);  :}
+    | UNDERSCORE LPAREN LEMMA    expr.e   RPAREN     {: return new Lemma(e);       :}
+    | UNDERSCORE LPAREN LEMMA    expr.e   SEMICOLON INDUCT ID.n RPAREN
+                                                     {: return new Lemma(e, new Id(n));    :}
+    | UNDERSCORE LPAREN CONSTANT pureconstdef.p RPAREN     {: return p; :}
+    | UNDERSCORE LPAREN FUNCTION puredef.p RPAREN    {: return p; :}
+    | UNDERSCORE LPAREN PREDICATE preddef.p RPAREN   {: return p; :}
+    | UNDERSCORE LPAREN ATOMIC BEGIN RPAREN          {: return BeginAtomicBlock.self(); :}
+    | UNDERSCORE LPAREN ATOMIC END RPAREN            {: return EndAtomicBlock.self(); :}
+    ;
+
+spec = UNDERSCORE LPAREN REQUIRES  assert.a RPAREN   {: return new Requires(a);  :}
+     | UNDERSCORE LPAREN ENSURES   assert.a RPAREN   {: return new Ensures(a);   :}
+     | UNDERSCORE LPAREN INVARIANT assert.a RPAREN   {: return new Invariant(a); :}
+     | UNDERSCORE LPAREN RESOURCE  assert.a RPAREN   {: return new Resource(a);  :}
+     | UNDERSCORE LPAREN MAINTAINS assert.a RPAREN   {: return new Maintains(a); :}
+     | UNDERSCORE LPAREN FAILS ID.m         RPAREN   {: return new Fails(m);     :}
+     | UNDERSCORE LPAREN LEMMA              RPAREN   {: return Lemma.self();     :}
+     | UNDERSCORE LPAREN PURE               RPAREN   {: return PureSpec.self();  :}
+     | UNDERSCORE LPAREN ATOMIC             RPAREN   {: return AtomicSpec.self(); :}
+     | UNDERSCORE LPAREN SHARED assert.a RELY expr.b GUARANTEE expr.c RPAREN {: return new Shared(a, b, c); :}
+     ;
+
+type
+    = LIST_LT type.t GT                 {: return new Type.list(t);  :}
+    | MAP_LT type.d COMMA type.r GT     {: return new Type.array(d, r); :}
+    | VOID                              {: return Void.self();   :}
+    | INT                               {: return SignedInt.self(); :}
+    | CHAR                              {: return SignedChar.self();  :}
+    | PARAM.p                           {: return new Type.param(p); :}
+    /* | SIGNED? CHAR                      {: return SChar.self();  :}
+    | SIGNED? SHORT                     {: return SShort.self(); :}
+    | SIGNED? INT                       {: return SInt.self();   :}
+    | SIGNED? LONG                      {: return SLong.self();  :}
+    | UNSIGNED CHAR                     {: return UChar.self();  :}
+    | UNSIGNED SHORT                    {: return UShort.self(); :}
+    | UNSIGNED INT?                     {: return UInt.self();   :}
+    | UNSIGNED LONG                     {: return ULong.self();  :} */
+    | TYPE.t                            {: return new TypedefName(t);   :}
+    | type.t STAR                       {: return new PtrType(t);       :}
+    | type.t LBRACK RBRACK              {: return new PtrType(t);       :}
+    | STRUCT ID.t                       {: return new StructName(t);    :}
+    | UNION  ID.t                       {: return new UnionName(t);     :}
+    | ENUM   ID.t                       {: return new EnumName(t);      :}
+    | STRUCT LBRACE fields.fs RBRACE    {: return new AnonStruct(fs);   :}
+    | UNION  LBRACE fields.fs RBRACE    {: return new AnonUnion(fs);    :}
+    | ENUM   LBRACE consts.cs RBRACE    {: return new AnonEnum(cs);     :}
+    ;
+
+  

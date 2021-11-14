@@ -1,0 +1,9 @@
+
+1. Client application (client_fed_learn.c) is done, but we need driver code to run client and accept parameter from server
+2. Server application which averages all the parameters and sends it back to clients again (driver code is also needed)
+3. Training data (I need some training data, preferably medical data)
+4. Right now, the client application is a framework in which we plug any learning algorithm, and for the moment it is linear regression
+   using gradient descent, but it would be nice if we can use some other algorithms as well. Moreover, we don't have any proof about 
+   the learning algorithm so try to find what is happening in machine learning formal verification or what properties can be proved 
+   about gradient descent itself. 
+5. Finally, plug all the pieces together, run it, and produce some result. 

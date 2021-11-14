@@ -1,0 +1,7 @@
+image: gidonernst/bitbucket:latest
+
+pipelines:
+  default:
+    - step:
+        script:
+          - ./run-tests
