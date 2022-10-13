@@ -3,7 +3,7 @@
 #define NULL 0
 
 #if __SECC
-typedef int float;
+typedef int double;
 #endif
 
 /* 
@@ -26,8 +26,8 @@ https://arxiv.org/pdf/1607.00133.pdf
 */
 struct private_training_data
 {
-  float x;
-  float y;
+  double x;
+  double y;
   struct private_training_data *next;
 };
 
@@ -72,15 +72,15 @@ the paper and understand it).
 struct event
 {
   event_status est;
-  float m; 
-  float c; 
+  double m; 
+  double c; 
   // When est == Training
-  float m_old; // old m 
-  float c_old; // old c 
-  float dm; // averaged m 
-  float dc; // averaged c
-  float noise1; // noise added to m_new = m_old - learning_rate * (dm + noise1)
-  float noise2; // noise added to c_new = c_old - learning_rate * (dc + noise2)
+  double m_old; // old m 
+  double c_old; // old c 
+  double dm; // averaged m 
+  double dc; // averaged c
+  double noise1; // noise added to m_new = m_old - learning_rate * (dm + noise1)
+  double noise2; // noise added to c_new = c_old - learning_rate * (dc + noise2)
 };
 
 
@@ -98,7 +98,7 @@ n is length of xs.
 _(predicate valid_memory_inv(;struct private_training_data *xs, int n)
    (xs == null :: low) &&
    (xs == null ? n == 0 : 
-       (exists float u, float v, struct private_training_data *xss.
+       (exists double u, double v, struct private_training_data *xss.
         &xs->x |-> u && (u :: high) && &xs->y |-> v && (v :: high) &&
         &xs->next |-> xss && (0 <= (n - 1)) && valid_memory_inv(;xss, n-1))))
 
@@ -110,7 +110,7 @@ compute the error (loss function).
 */
 struct yvector
 {
-  float head;
+  double head;
   struct yvector *next;
 };
 
@@ -121,7 +121,7 @@ n is length of ys.
 _(predicate valid_yvector_inv(;struct yvector *ys, int n)
     (ys == null :: low) &&
     (ys == null ? n == 0 : 
-        (exists float u, struct yvector *yss.
+        (exists double u, struct yvector *yss.
         &ys->head |-> u && (u :: high) && &ys->next |-> yss && 
         (0 <= (n - 1)) && valid_yvector_inv(;yss, n-1))))
 
@@ -134,10 +134,10 @@ has enough budget to run the training. Every training event
 consumes a eps amount of budget, while the refill event replenishes
 the budget by refvalue amount.
 */
-_(function float count_total_budget(float eps, float refvalue, list<struct event> iost))
+_(function double count_total_budget(double eps, double refvalue, list<struct event> iost))
 _(rewrites
-    forall float eps, float refvalue. count_total_budget(eps, refvalue, nil) == 0;
-    forall float eps, float refvalue, struct event e, list<struct event> es. 
+    forall double eps, double refvalue. count_total_budget(eps, refvalue, nil) == 0;
+    forall double eps, double refvalue, struct event e, list<struct event> es. 
       count_total_budget(eps, refvalue, cons(e, es)) == 
       ((e.est == Training) ? (-eps + count_total_budget(eps, refvalue, es)) :
        ((e.est == Refilled) ? (refvalue + count_total_budget(eps, refvalue, es)) :
@@ -182,7 +182,7 @@ be nice if we can encode some other information, e.g., connecting the noism and 
 a logical function (but I don't know how difficult it would be in SecC and what can we 
 prove about those logical functions)
 */
-_(predicate safe_to_release_final_m_c(float noism, float noisc, float eps, float refvalue, float lrate, list<struct event> iost,
+_(predicate safe_to_release_final_m_c(double noism, double noisc, double eps, double refvalue, double lrate, list<struct event> iost,
       list<struct event> ios, struct event e, list<struct event> rs, struct event f, int k)
       ((iost == append(ios, cons(e, append (rs, cons(f, nil)))) && // split the whole trace into previous ++ Received ++ latest training epoch ++ Sent
         (count_total_budget(eps, refvalue, ios) >= k * eps) && // we have enough budget to train k iterations
@@ -199,12 +199,12 @@ _(predicate safe_to_release_final_m_c(float noism, float noisc, float eps, float
 This predicate connects the budget from the computational function to the 
 logical function to ensure the correctness 
 */
-_(predicate budget_and_trace_inv(float budget, float eps, float refvalue; list<struct event> ios)
+_(predicate budget_and_trace_inv(double budget, double eps, double refvalue; list<struct event> ios)
     budget == count_total_budget(eps, refvalue, ios))
 
        
 
-float compute_dE_dm(struct private_training_data *xs, int n, float m, float c)
+double compute_dE_dm(struct private_training_data *xs, int n, double m, double c)
 _(requires valid_memory_inv(;xs, n))
 _(ensures  valid_memory_inv(;xs, n))
 {
@@ -219,14 +219,14 @@ _(ensures  valid_memory_inv(;xs, n))
   else
   {
     _(assert xs != null)
-    _(assert (exists float u, float v, struct private_training_data *ys.
+    _(assert (exists double u, double v, struct private_training_data *ys.
         &xs->x |-> u && &xs->y |-> v &&
         &xs->next |-> ys && valid_memory_inv(;ys, n-1)))
     //(yi - (m * xi + c)) * xi
-    float xi = xs->x;
-    float yi = xs->y;
-    float ans = (yi - (m * xi + c)) * xi;
-    float rest = compute_dE_dm(xs->next, n-1, m, c); // n appears useless here
+    double xi = xs->x;
+    double yi = xs->y;
+    double ans = (yi - (m * xi + c)) * xi;
+    double rest = compute_dE_dm(xs->next, n-1, m, c); // n appears useless here
     _(fold valid_memory_inv(;xs, n))
     return (ans + rest);
     
@@ -234,7 +234,7 @@ _(ensures  valid_memory_inv(;xs, n))
 
 }       
 
-float compute_dE_dc(struct private_training_data *xs, int n, float m, float c)
+double compute_dE_dc(struct private_training_data *xs, int n, double m, double c)
 _(requires valid_memory_inv(;xs, n))
 _(ensures  valid_memory_inv(;xs, n))
 {
@@ -250,14 +250,14 @@ _(ensures  valid_memory_inv(;xs, n))
   else
   {
     _(assert xs != null)
-    _(assert (exists float u, float v, struct private_training_data *ys.
+    _(assert (exists double u, double v, struct private_training_data *ys.
         &xs->x |-> u && &xs->y |-> v &&
         &xs->next |-> ys && valid_memory_inv(;ys, n-1)))
     //(yi - (m * xi + c))
-    float xi = xs->x;
-    float yi = xs->y;
-    float ans = (yi - (m * xi + c));
-    float rest = compute_dE_dc(xs->next, n-1, m, c); // n appears useless here
+    double xi = xs->x;
+    double yi = xs->y;
+    double ans = (yi - (m * xi + c));
+    double rest = compute_dE_dc(xs->next, n-1, m, c); // n appears useless here
     _(fold valid_memory_inv(;xs, n))
     return (ans + rest);
     
@@ -275,7 +275,7 @@ Y_pred = pack[0] * X + pack[1]
 
 The only proof we have with function is that it's memory safe and does not leak any secret.
 */
-void compute_yhat_from_data(float m, float c, struct private_training_data *xs, struct yvector *ys, int n)
+void compute_yhat_from_data(double m, double c, struct private_training_data *xs, struct yvector *ys, int n)
 _(requires valid_memory_inv(;xs, n))
 _(requires valid_yvector_inv(;ys, n))
 _(ensures  valid_memory_inv(;xs, n))
@@ -298,11 +298,11 @@ _(ensures  valid_yvector_inv(;ys, n))
     _(assert n != 0)
 
     _(unfold valid_yvector_inv(;ys, n))
-    _(assert exists float u, struct yvector *yss.
+    _(assert exists double u, struct yvector *yss.
         &ys->head |-> u && (u :: high) && &ys->next |-> yss && 
         valid_yvector_inv(;yss, n-1))
 
-    _(assert (exists float u, float v, struct private_training_data *xss.
+    _(assert (exists double u, double v, struct private_training_data *xss.
         &xs->x |-> u && &xs->y |-> v &&
         &xs->next |-> xss && valid_memory_inv(;xss, n-1)))
     
@@ -321,8 +321,8 @@ struct to store the parameters of the model
 */
 struct gradient
 {
-  float m;
-  float c;
+  double m;
+  double c;
   struct gradient *next;
 };
 
@@ -333,7 +333,7 @@ n is the length of the list
 _(predicate valid_gradient_inv(;struct gradient *gs, int n)
    (gs == null :: low) &&
    (gs == null ? n == 0 : 
-       (exists float u, float v, struct gradient *gss.
+       (exists double u, double v, struct gradient *gss.
         &gs->m |-> u && (u :: high) && &gs->c |-> v && (v :: high) &&
         &gs->next |-> gss && (0 <= (n - 1)) && valid_gradient_inv(;gss, n-1))))
 
@@ -367,17 +367,17 @@ _(ensures  valid_gradient_inv(;gs, n))
   {
     _(assert yhat != null)
     _(assert n != 0)
-    _(assert exists float u, struct yvector *yss.
+    _(assert exists double u, struct yvector *yss.
         &yhat->head |-> u && (u :: high) && &yhat->next |-> yss && 
         valid_yvector_inv(;yss, n-1))
 
     _(unfold valid_memory_inv(;xs, n))
-    _(assert (exists float u, float v, struct private_training_data *xss.
+    _(assert (exists double u, double v, struct private_training_data *xss.
         &xs->x |-> u && &xs->y |-> v &&
         &xs->next |-> xss && valid_memory_inv(;xss, n-1)))
     
     _(unfold valid_gradient_inv(;gs, n))
-    _(assert (exists float u, float v, struct gradient *gss.
+    _(assert (exists double u, double v, struct gradient *gss.
         &gs->m |-> u && (u :: high) && &gs->c |-> v && (v :: high) &&
         &gs->next |-> gss && (0 <= (n - 1)) && valid_gradient_inv(;gss, n-1)))
 
@@ -518,7 +518,7 @@ _(lemma) _(pure)
  _(assert abs_to_int(0) == 0)
 }
 
-void sum_of_lh(int l, int h, float m, float tau)
+void sum_of_lh(int l, int h, double m, double tau)
 _(requires tau > 0)
 _(requires l == abs_to_pos_int(m > tau))
 _(requires h == abs_to_neg_int(m < -tau))
@@ -636,7 +636,7 @@ _(ensures result == abs_to_int(x))
 }
 
 #if 0
-void bounded_lemma(int l, int h, int kl, int kr, float m, float tau, float retm)
+void bounded_lemma(int l, int h, int kl, int kr, double m, double tau, double retm)
   _(requires tau > 0)
   _(requires l == abs_to_pos_int(m > tau))
   _(requires h == abs_to_neg_int(m < -tau))
@@ -700,7 +700,7 @@ it is bounded.
 clipped_gradients = np.clip(gradients, -tau, tau)
 */
 
-void clip_gradient(struct gradient *gs, int n, float tau)
+void clip_gradient(struct gradient *gs, int n, double tau)
 _(requires tau > 0)
 _(requires valid_gradient_inv(;gs, n))
 _(ensures  valid_gradient_inv(;gs, n))
@@ -717,12 +717,12 @@ _(ensures  valid_gradient_inv(;gs, n))
   {
     _(assert gs != null)
     _(assert n != 0)
-    _(assert exists float u, float v, struct gradient *gss.
+    _(assert exists double u, double v, struct gradient *gss.
         &gs->m |-> u && (u :: high) && &gs->c |-> v && (v :: high) &&
         &gs->next |-> gss && (0 <= (n - 1)) && valid_gradient_inv(;gss, n-1))
 
-    float m = gs->m;
-    float c = gs->c;
+    double m = gs->m;
+    double c = gs->c;
 
     /*
     https://numpy.org/doc/stable/reference/generated/numpy.clip.html 
@@ -768,7 +768,7 @@ _(ensures  valid_gradient_inv(;gs, n))
     _(assert kl == 0 || kl == 1 || kl == -1)
     int kr = abs(kl);
     _(assert kr == abs_to_int(kl))
-    float retm = tau * kl + (1 - kr) * m;
+    double retm = tau * kl + (1 - kr) * m;
   
     _(apply bounded_lemma(l, h, kl, kr, m, tau, retm);)
     // Proof that retm is within [-tau, tau]
@@ -786,7 +786,7 @@ _(ensures  valid_gradient_inv(;gs, n))
     _(assert wl == 0 || wl == 1 || wl == -1)
     int wr = abs(wl);
     _(assert wr == abs_to_int(wl))
-    float retc = tau * wl + (1 - wr) * c;
+    double retc = tau * wl + (1 - wr) * c;
 
     _(apply bounded_lemma(u, d, wl, wr, c, tau, retc);)
     // Proof that retc is within [-tau, tau]
@@ -817,10 +817,10 @@ and making learning rate a function of error converges very fast and then in the
 return np.average(iterates[int(np.floor(T/2)):,:], axis=0) (see the python implementation DPGDPure_m_and_c,
 which I have adapted from their DPGDPure, in dpgdppure.py file), while in (ii) we don't need to store any 
 intermediate gradient. So, both of these implementations are equivalent. Our implementation follows (ii), and
-the reason is to avoid the attacks because of floating point divison information leakage. Moreover, 
+the reason is to avoid the attacks because of doubleing point divison information leakage. Moreover, 
 we don't need any auxiliary memory to store the intermediate gradient. 
 */
-float sum_gradient_m(struct gradient *gs, int n)
+double sum_gradient_m(struct gradient *gs, int n)
 _(requires valid_gradient_inv(;gs, n))
 _(ensures  valid_gradient_inv(;gs, n))
 {
@@ -836,12 +836,12 @@ _(ensures  valid_gradient_inv(;gs, n))
   {
     _(assert gs != null)
     _(assert n != 0)
-    _(assert exists float u, float v, struct gradient *gss.
+    _(assert exists double u, double v, struct gradient *gss.
         &gs->m |-> u && (u :: high) && &gs->c |-> v && (v :: high) &&
         &gs->next |-> gss && (0 <= (n - 1)) && valid_gradient_inv(;gss, n-1))
 
-    float curr = gs->m;
-    float ret = sum_gradient_m(gs->next, n-1);    
+    double curr = gs->m;
+    double ret = sum_gradient_m(gs->next, n-1);    
     _(fold valid_gradient_inv(;gs, n))
     return curr + ret;
   }
@@ -850,12 +850,12 @@ _(ensures  valid_gradient_inv(;gs, n))
 /*
 Average the gradient theta1 
 */
-float average_gradient_m(struct gradient *gs, int n)
+double average_gradient_m(struct gradient *gs, int n)
 _(requires valid_gradient_inv(;gs, n))
 _(ensures  valid_gradient_inv(;gs, n))
 {
-  float ret = sum_gradient_m(gs, n);
-  float m = n; // I hope the compiler 
+  double ret = sum_gradient_m(gs, n);
+  double m = n; // I hope the compiler 
   // will take care of the division.
   return ret / m; 
    
@@ -865,7 +865,7 @@ _(ensures  valid_gradient_inv(;gs, n))
 /*
 Sum the gradient theta2. 
 */
-float sum_gradient_c(struct gradient *gs, int n)
+double sum_gradient_c(struct gradient *gs, int n)
 _(requires valid_gradient_inv(;gs, n))
 _(ensures  valid_gradient_inv(;gs, n))
 {
@@ -881,12 +881,12 @@ _(ensures  valid_gradient_inv(;gs, n))
   {
     _(assert gs != null)
     _(assert n != 0)
-    _(assert exists float u, float v, struct gradient *gss.
+    _(assert exists double u, double v, struct gradient *gss.
         &gs->m |-> u && (u :: high) && &gs->c |-> v && (v :: high) &&
         &gs->next |-> gss && (0 <= (n - 1)) && valid_gradient_inv(;gss, n-1))
 
-    float curr = gs->c;
-    float ret = sum_gradient_m(gs->next, n-1);    
+    double curr = gs->c;
+    double ret = sum_gradient_m(gs->next, n-1);    
     _(fold valid_gradient_inv(;gs, n))
     return curr + ret;
   }
@@ -895,12 +895,12 @@ _(ensures  valid_gradient_inv(;gs, n))
 /*
 Average the gradient theta2.
 */
-float average_gradient_c(struct gradient *gs, int n)
+double average_gradient_c(struct gradient *gs, int n)
 _(requires valid_gradient_inv(;gs, n))
 _(ensures  valid_gradient_inv(;gs, n))
 {
-  float ret = sum_gradient_c(gs, n);
-  float m = n; // I hope the compiler 
+  double ret = sum_gradient_c(gs, n);
+  double m = n; // I hope the compiler 
   // will take care of the division.
   return ret / m; 
    
@@ -912,7 +912,7 @@ https://numpy.org/doc/stable/reference/random/generated/numpy.random.laplace.htm
 In the C program, it will be replaced by the boost library implementation.
 https://www.boost.org/doc/libs/1_49_0/libs/math/doc/sf_and_dist/html/math_toolkit/dist/dist_ref/dists/laplace_dist.html
 */
-float laplace_noise(float tau);
+double laplace_noise(double tau);
 _(ensures result :: high)
 
 
@@ -920,7 +920,7 @@ _(ensures result :: high)
 
 
 // This event is triggered when server sends the model parameters to client
-struct event add_receive_event_to_trace(float m, float c);
+struct event add_receive_event_to_trace(double m, double c);
 _(requires exists list<struct event> ios. io_trace(;ios))
 _(ensures  result.est == Received && result.m == m && result.c == c)
 _(ensures io_trace(;append(ios, cons(result, nil))))
@@ -934,8 +934,8 @@ _(ensures io_trace(;append(ios, cons(result, nil))))
 
 // This event triggers when training is happening. After each phase, 
 // we will add noise, eps, to m and c, similar to ANoise-GD
-struct event add_training_event_to_trace(float m_new, float m_old, float dm,
-  float noise1, float c_new, float c_old, float dc, float noise2, float learning_rate);
+struct event add_training_event_to_trace(double m_new, double m_old, double dm,
+  double noise1, double c_new, double c_old, double dc, double noise2, double learning_rate);
 _(requires exists list<struct event> ios. io_trace(;ios))
 _(ensures  result.est == Training && result.m == m_new  && 
     result.m_old == m_old && result.dm == dm && result.noise1 == noise1 &&
@@ -948,7 +948,7 @@ _(ensures io_trace(;append(ios, cons(result, nil))))
 
 // This event is triggered when client sends the model 
 // parameters to server
-struct event add_conveyed_event_to_trace(float m, float c);
+struct event add_conveyed_event_to_trace(double m, double c);
 _(requires exists list<struct event> ios. io_trace(;ios))
 _(ensures  result.est == Conveyed && result.m == m && result.c == c)
 _(ensures io_trace(;append(ios, cons(result, nil))))
@@ -956,10 +956,10 @@ _(ensures io_trace(;append(ios, cons(result, nil))))
 
 
 // Beginning of the process when we start a client
-status_code start_the_client(float *budget, float eps, float refvalue)
+status_code start_the_client(double *budget, double eps, double refvalue)
 _(requires io_trace(;nil))
 _(requires  0 < eps)
-_(requires exists float val. budget |-> val)
+_(requires exists double val. budget |-> val)
 _(ensures result == Success)
 _(ensures budget |-> 0)
 _(ensures budget_and_trace_inv(0, eps, refvalue; nil))
@@ -972,7 +972,7 @@ _(ensures io_trace(;nil))
 }
 
 #if 0
-void budget_append(float eps, float refvalue, list<struct event> ls, list<struct event> rs)
+void budget_append(double eps, double refvalue, list<struct event> ls, list<struct event> rs)
 _(ensures count_total_budget(eps, refvalue, append(ls, rs)) == 
     (count_total_budget(eps, refvalue, ls) + count_total_budget(eps, refvalue, rs)))
 _(lemma) _(pure)
@@ -984,7 +984,7 @@ _(lemma) _(pure)
   }
 }
 
-void adding_refill_to_trace(float obudget, float eps, float refvalue, struct event e, list<struct event> ios)
+void adding_refill_to_trace(double obudget, double eps, double refvalue, struct event e, list<struct event> ios)
 _(requires e.est == Refilled)
 _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
 _(ensures budget_and_trace_inv(obudget+refvalue, eps, refvalue; append(ios, cons(e, nil))))
@@ -1003,10 +1003,10 @@ _(lemma)
 /*
 This function is called in the beginning to fill the budget. 
 */
-status_code fill_budget(float *budget, float eps, float refvalue)
+status_code fill_budget(double *budget, double eps, double refvalue)
 _(requires exists list<struct event> ios. io_trace(;ios))
 _(requires 0 < eps)
-_(requires exists float obudget. budget |-> obudget)
+_(requires exists double obudget. budget |-> obudget)
 _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
 _(ensures result == Success)
 _(ensures budget |-> obudget + refvalue) 
@@ -1083,7 +1083,7 @@ _(pure) _(lemma)
 
 }
 
-void budget_append_preserve(float eps, float refvalue, list<struct event> ls, list<struct event> rs)
+void budget_append_preserve(double eps, double refvalue, list<struct event> ls, list<struct event> rs)
 _(ensures count_total_budget(eps, refvalue, append(ls, rs)) == 
     (count_total_budget(eps, refvalue, ls) + count_total_budget(eps, refvalue, rs)))
 _(lemma) _(pure)
@@ -1113,7 +1113,7 @@ _(lemma) _(pure)
   }
 }
 
-void no_training_no_budget_spent(list<struct event> iost2, list<struct event> ios, struct event e, struct event et2, int obudget, float eps, float refvalue)
+void no_training_no_budget_spent(list<struct event> iost2, list<struct event> ios, struct event e, struct event et2, int obudget, double eps, double refvalue)
  _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
  _(requires e.est == Received && et2.est == Conveyed)
  _(requires iost2 == append(ios, append(cons(e, nil), cons(et2, nil))))
@@ -1198,10 +1198,10 @@ _(rewrites
 This function ensures that the trace, generate during the training, is "well-formed"
 
 */
-_(function bool well_formed_training_trace(float learn_rate, list<struct event> ios))
+_(function bool well_formed_training_trace(double learn_rate, list<struct event> ios))
 _(rewrites
-    forall float learn_rate. well_formed_training_trace(learn_rate, nil) <=> true; // no training
-    forall float learn_rate, struct event e, list<struct event> es. 
+    forall double learn_rate. well_formed_training_trace(learn_rate, nil) <=> true; // no training
+    forall double learn_rate, struct event e, list<struct event> es. 
       well_formed_training_trace(learn_rate, cons(e, es)) <=>
       ((e.est == Training && (e.m == (e.m_old - learn_rate * (e.dm + e.noise1))) && 
        (e.c == (e.c_old - learn_rate * (e.dc + e.noise2)))) && 
@@ -1251,28 +1251,28 @@ is in faishon. They don't need to bother about budget tracking because we have a
 that when their is not enpught budget, the it would not train.  More importantly, we generate 
 evidence, in terms of data, that can be used by any third party to audit the claim of a client.
 */  
-void recursive_gradient_descent(int k, struct  private_training_data *xs, int n, float *m, float *c, 
-  float *learning_rate, float *budget, float eps, float refvalue, struct yvector *yhat, struct gradient *gs)
+void recursive_gradient_descent(int k, struct  private_training_data *xs, int n, double *m, double *c, 
+  double *learning_rate, double *budget, double eps, double refvalue, struct yvector *yhat, struct gradient *gs)
 _(requires k >= 0 && k :: low)
 _(requires valid_yvector_inv(;yhat, n)) 
 _(requires valid_memory_inv(;xs, n))
 _(requires valid_gradient_inv(;gs, n))
 _(requires exists list<struct event> ios. io_trace(;ios))
 _(requires 0 < eps && eps :: low)
-_(requires exists float obudget. 
+_(requires exists double obudget. 
     budget |-> obudget && obudget :: low)
 _(requires obudget >= k * eps)
 _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
-_(requires exists float lrate. 
+_(requires exists double lrate. 
     learning_rate |-> lrate)
-_(requires exists float oldm. m |-> oldm)
-_(requires exists float oldc. c |-> oldc)
+_(requires exists double oldm. m |-> oldm)
+_(requires exists double oldc. c |-> oldc)
 _(requires exists struct event ew, list<struct event> iosw.
    ios == append(iosw, cons(ew, nil)) && ew.m == oldm &&
    ew.c == oldc)
 _(ensures  valid_memory_inv(;xs, n))
-_(ensures  exists float newm. m |-> newm)
-_(ensures  exists float newc. c |-> newc)
+_(ensures  exists double newm. m |-> newm)
+_(ensures  exists double newc. c |-> newc)
 _(ensures  budget |-> (obudget - k * eps) && (obudget - k * eps) >= 0)
 _(ensures  learning_rate |-> lrate)
 _(ensures  exists list<struct event> iotr. io_trace(;iotr))
@@ -1309,14 +1309,14 @@ _(ensures valid_gradient_inv(;gs, n))
   }
   else
   {
-    float m_old;
-    float c_old;
-    float m_new;
-    float c_new;
-    float learn_rate;
-    float cbudget;
-    float dm; 
-    float dc;  
+    double m_old;
+    double c_old;
+    double m_new;
+    double c_new;
+    double learn_rate;
+    double cbudget;
+    double dm; 
+    double dc;  
     
     m_old = *m;
     c_old = *c;
@@ -1347,7 +1347,7 @@ _(ensures valid_gradient_inv(;gs, n))
     // void compute_gradient_m_and_c(struct yvector *yhat, struct private_training_data *xs, struct gradient *gs, int n)
     compute_gradient_m_and_c(yhat, xs, gs, n);
 
-    float tau = 1; // 1.0 is parse error
+    double tau = 1; // 1.0 is parse error
     // Now clip the gradient
     clip_gradient(gs, n, tau);
 
@@ -1355,10 +1355,10 @@ _(ensures valid_gradient_inv(;gs, n))
     // we need to add noise to the gradient.
     // total_clipped_gradient = np.average(clipped_gradients, axis = 0) + 
     // np.random.laplace(0, 4 * tau/epst)/n
-    float noise1 = laplace_noise(4 * tau/eps)/n;
-    float noise2 = laplace_noise(4 * tau/eps)/n;
+    double noise1 = laplace_noise(4 * tau/eps)/n;
+    double noise2 = laplace_noise(4 * tau/eps)/n;
 
-    // Notes: one problem is that we can't use the floating point division because
+    // Notes: one problem is that we can't use the doubleing point division because
     // of timing attack. Therefore, our learning rate is constant. 
     // total_clipped_gradient = (np.sum(clipped_gradients, axis = 0) + np.random.laplace(0, 4 * tau/epst))/n 
     // which corresponds to line add noise in Different Private SGD paper, https://arxiv.org/pdf/1607.00133.pdf%20.
@@ -1438,28 +1438,28 @@ data and return it to the server.
 */
 
 // m and c are used for receiving, and mret and cret are used for sending  
-status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs, int n, float *m, float *c,
-  float *mret, float *cret, float *learning_rate, float *budget, float eps, float refvalue, int k, struct yvector *yhat, struct gradient *gs)
+status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs, int n, double *m, double *c,
+  double *mret, double *cret, double *learning_rate, double *budget, double eps, double refvalue, int k, struct yvector *yhat, struct gradient *gs)
   _(requires valid_memory_inv(;xs, n))
   _(requires valid_yvector_inv(;yhat, n))
   _(requires valid_gradient_inv(;gs, n))
   _(requires exists list<struct event> ios. io_trace(;ios))
   _(requires k >= 0 && k :: low)
   _(requires 0 < eps && eps :: low)
-  _(requires exists float obudget. budget |-> obudget && obudget :: low)
+  _(requires exists double obudget. budget |-> obudget && obudget :: low)
   _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
-  _(requires exists float lrate. learning_rate |-> lrate)
-  _(requires exists float oldm. m |-> oldm)
-  _(requires exists float oldc. c |-> oldc)
-  _(requires exists float oldmret. mret |-> oldmret && oldmret :: low)
-  _(requires exists float oldcret. cret |-> oldcret && oldcret :: low)
+  _(requires exists double lrate. learning_rate |-> lrate)
+  _(requires exists double oldm. m |-> oldm)
+  _(requires exists double oldc. c |-> oldc)
+  _(requires exists double oldmret. mret |-> oldmret && oldmret :: low)
+  _(requires exists double oldcret. cret |-> oldcret && oldcret :: low)
   _(ensures  result :: low)
   _(ensures  valid_memory_inv(;xs, n))
-  _(ensures  exists float newm. m |-> newm)
-  _(ensures  exists float newc. c |-> newc)
-  _(ensures  exists float nmret. mret |-> nmret && nmret :: low)
-  _(ensures  exists float ncret. cret |-> ncret && ncret :: low)
-  _(ensures  exists float newb. budget |-> newb && newb :: low)
+  _(ensures  exists double newm. m |-> newm)
+  _(ensures  exists double newc. c |-> newc)
+  _(ensures  exists double nmret. mret |-> nmret && nmret :: low)
+  _(ensures  exists double ncret. cret |-> ncret && ncret :: low)
+  _(ensures  exists double newb. budget |-> newb && newb :: low)
   _(ensures  learning_rate |-> lrate)
   _(ensures  exists list<struct event> iost. io_trace(;iost))
   _(ensures  budget_and_trace_inv(newb, eps, refvalue; iost))
@@ -1473,9 +1473,9 @@ status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs
   {
     _(unfold budget_and_trace_inv(obudget, eps, refvalue; ios))
     // received event
-    float m_old = *m;
-    float c_old = *c;
-    float learn_rate = *learning_rate;
+    double m_old = *m;
+    double c_old = *c;
+    double learn_rate = *learning_rate;
     struct event e = add_receive_event_to_trace(m_old, c_old);
     _(assert  e.est == Received && e.m == m_old && e.c == c_old)
     _(assert exists list<struct event> iost. iost == append(ios, cons(e, nil)) &&
@@ -1493,7 +1493,7 @@ status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs
     // check if we have enought privacy budget for training
     // if yes, Train and if no, return the values received 
     // from the server. 
-    float cbudget = *budget;
+    double cbudget = *budget;
     _(assert cbudget == obudget)
 
     // we have enough budget to run 
@@ -1592,18 +1592,18 @@ status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs
 
 
 
-float *budget;
-float eps; 
-float refvalue;
+double *budget;
+double eps; 
+double refvalue;
 struct  private_training_data *xs;
 struct yvector *ys;
 struct gradient *gs;
 int n;
-float *m;
-float *c;
-float *mret; 
-float *cret;
-float *learning_rate;
+double *m;
+double *c;
+double *mret; 
+double *cret;
+double *learning_rate;
 int k;
 
 void sleep(int delay);
@@ -1613,39 +1613,39 @@ _(requires delay :: low)
 /* lock acquire */
 void acquire_lock();
 _(ensures exists list<struct event> ios. io_trace(;ios))
-_(ensures exists float obudget. budget |-> obudget && obudget :: low)
+_(ensures exists double obudget. budget |-> obudget && obudget :: low)
 _(ensures budget_and_trace_inv(obudget, eps, refvalue; ios))
 _(ensures refvalue :: low)
 _(ensures 0 < eps && eps :: low)
 _(ensures valid_memory_inv(;xs, n))
 _(ensures valid_yvector_inv(;ys, n))
 _(ensures valid_gradient_inv(;gs, n))
-_(ensures exists float lrate. learning_rate |-> lrate)
-_(ensures exists float oldm. m |-> oldm)
-_(ensures exists float oldc. c |-> oldc)
+_(ensures exists double lrate. learning_rate |-> lrate)
+_(ensures exists double oldm. m |-> oldm)
+_(ensures exists double oldc. c |-> oldc)
 _(ensures 0 <= k && k :: low)
-_(ensures exists float oldmret. mret |-> oldmret && oldmret :: low)
-_(ensures exists float oldcret. cret |-> oldcret && oldcret :: low)
+_(ensures exists double oldmret. mret |-> oldmret && oldmret :: low)
+_(ensures exists double oldcret. cret |-> oldcret && oldcret :: low)
   
 /* release lock */
 void release_lock();
 _(requires exists list<struct event> ios. io_trace(;ios))
-_(requires exists float obudget. budget |-> obudget && obudget :: low)
+_(requires exists double obudget. budget |-> obudget && obudget :: low)
 _(requires budget_and_trace_inv(obudget, eps, refvalue; ios))
 _(requires refvalue :: low)
 _(requires 0 < eps && eps :: low)
 _(requires valid_memory_inv(;xs, n))
 _(requires valid_yvector_inv(;ys, n))
 _(requires valid_gradient_inv(;gs, n))
-_(requires exists float lrate. learning_rate |-> lrate)
-_(requires exists float oldm. m |-> oldm)
-_(requires exists float oldc. c |-> oldc)
+_(requires exists double lrate. learning_rate |-> lrate)
+_(requires exists double oldm. m |-> oldm)
+_(requires exists double oldc. c |-> oldc)
 _(requires 0 <= k && k :: low)
-_(requires exists float oldmret. mret |-> oldmret && oldmret :: low)
-_(requires exists float oldcret. cret |-> oldcret && oldcret :: low)
+_(requires exists double oldmret. mret |-> oldmret && oldmret :: low)
+_(requires exists double oldcret. cret |-> oldcret && oldcret :: low)
 
 
-void print_gradient(status_code t, float m, float c);
+void print_gradient(status_code t, double m, double c);
 
 
 /* 

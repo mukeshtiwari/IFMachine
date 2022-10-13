@@ -23,8 +23,8 @@ to the server.
 
 struct private_training_data
 {
-  float x;
-  float y;
+  double x;
+  double y;
   struct private_training_data *next;
 };
 
@@ -48,58 +48,58 @@ typedef enum ret_code status_code;
 struct event
 {
   event_status est;
-  float m; 
-  float c; 
+  double m; 
+  double c; 
   // When est == Training
-  float m_old; // old m 
-  float c_old; // old c 
-  float dm; // averaged m 
-  float dc; // averaged c
-  float noise1; // noise added to m_new = m_old - learning_rate * (dm + noise1)
-  float noise2; // noise added to c_new = c_old - learning_rate * (dc + noise2)
+  double m_old; // old m 
+  double c_old; // old c 
+  double dm; // averaged m 
+  double dc; // averaged c
+  double noise1; // noise added to m_new = m_old - learning_rate * (dm + noise1)
+  double noise2; // noise added to c_new = c_old - learning_rate * (dc + noise2)
 };
 
 struct yvector
 {
-  float head;
+  double head;
   struct yvector *next;
 };
 
 struct gradient
 {
-  float m;
-  float c;
+  double m;
+  double c;
   struct gradient *next;
 };
 
-float *budget;
-float eps; 
-float refvalue;
+double *budget;
+double eps; 
+double refvalue;
 struct  private_training_data *xs;
 struct yvector *ys;
 struct gradient *gs;
 int n;
-float *m;
-float *c;
-float *mret; 
-float *cret;
-float *learning_rate;
+double *m;
+double *c;
+double *mret; 
+double *cret;
+double *learning_rate;
 int k;
 
-extern void compute_yhat_from_data(float m, float c, struct private_training_data *xs, struct yvector *ys, int n);
+extern void compute_yhat_from_data(double m, double c, struct private_training_data *xs, struct yvector *ys, int n);
 extern void compute_gradient_m_and_c(struct yvector *yhat, struct private_training_data *xs, struct gradient *gs, int n);
 extern int abs(int x);
-extern void clip_gradient(struct gradient *gs, int n, float tau);
-extern float sum_gradient_m(struct gradient *gs, int n);
-extern float average_gradient_m(struct gradient *gs, int n);
-extern float sum_gradient_c(struct gradient *gs, int n);
-extern float average_gradient_c(struct gradient *gs, int n);
-extern status_code start_the_client(float *budget, float eps, float refvalue);
-extern status_code fill_budget(float *budget, float eps, float refvalue);
-extern void recursive_gradient_descent(int k, struct  private_training_data *xs, int n, float *m, float *c, float *learning_rate, 
-  float *budget, float eps, float refvalue, struct yvector *yhat, struct gradient *gs);
-extern status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs, int n, float *m, float *c,
-  float *mret, float *cret, float *learning_rate, float *budget, float eps, float refvalue, int k, struct yvector *yhat, struct gradient *gs);
+extern void clip_gradient(struct gradient *gs, int n, double tau);
+extern double sum_gradient_m(struct gradient *gs, int n);
+extern double average_gradient_m(struct gradient *gs, int n);
+extern double sum_gradient_c(struct gradient *gs, int n);
+extern double average_gradient_c(struct gradient *gs, int n);
+extern status_code start_the_client(double *budget, double eps, double refvalue);
+extern status_code fill_budget(double *budget, double eps, double refvalue);
+extern void recursive_gradient_descent(int k, struct  private_training_data *xs, int n, double *m, double *c, double *learning_rate, 
+  double *budget, double eps, double refvalue, struct yvector *yhat, struct gradient *gs);
+extern status_code predict_m_and_c_using_grad_descent(struct  private_training_data *xs, int n, double *m, double *c,
+  double *mret, double *cret, double *learning_rate, double *budget, double eps, double refvalue, int k, struct yvector *yhat, struct gradient *gs);
 extern status_code run_the_learning_framework();
 
 
@@ -114,9 +114,9 @@ extern status_code run_the_learning_framework();
 // returns a random number from a Laplace distribution with parameter tau
 // To get the actual predication, comment out the noise part
 // and just simply return 0, i.e. no noise.
-float laplace_noise(float x)
+double laplace_noise(double x)
 {
-   float temp = 0.5 * exp(-fabs(x));
+   double temp = 0.5 * exp(-fabs(x));
    //printf("x and laplace_noise:%f %f\n", x, temp);
    //return (x <= 0.0) ? temp : 1.0 - temp;
    return 0; // disregard any differential privacy (this is for testing because we return no noise)
@@ -132,7 +132,7 @@ void release_lock(){
   pthread_mutex_unlock(&g_mutex);
 }
 
-struct event add_receive_event_to_trace(float m, float c)
+struct event add_receive_event_to_trace(double m, double c)
 {
   FILE *fp = fopen(LOGFILE, "a");
   fprintf(fp, "Received %f %f\n", m, c);
@@ -148,8 +148,8 @@ struct event add_refill_event_to_trace()
   return (struct event) {.est = Refilled};
 }
 
-struct event add_training_event_to_trace(float m_new, float m_old, float dm,
-  float noise1, float c_new, float c_old, float dc, float noise2, float learning_rate)
+struct event add_training_event_to_trace(double m_new, double m_old, double dm,
+  double noise1, double c_new, double c_old, double dc, double noise2, double learning_rate)
 {
   FILE *fp = fopen(LOGFILE, "a");
   fprintf(fp, "Training %f %f\n", m, c);
@@ -158,7 +158,7 @@ struct event add_training_event_to_trace(float m_new, float m_old, float dm,
     .dm = dm, .noise1 = noise1, .c_old = c_old, .dc = dc, .noise2 = noise2};
 }
 
-struct event add_conveyed_event_to_trace(float m, float c)
+struct event add_conveyed_event_to_trace(double m, double c)
 {
   FILE *fp = fopen(LOGFILE, "a");
   fprintf(fp, "Conveyed %f %f\n", m, c);
@@ -167,9 +167,9 @@ struct event add_conveyed_event_to_trace(float m, float c)
 }
 
 
-float generate_random_number() // [0, 1]
+double generate_random_number() // [0, 1]
 {
-  return (float)rand() / (float)RAND_MAX;
+  return (double)rand() / (double)RAND_MAX;
 }
 
 
@@ -216,7 +216,7 @@ struct gradient *alloc_memory_gs(int n)
   }
 }
 
-void print_gradient(status_code t, float m, float c)
+void print_gradient(status_code t, double m, double c)
 {
   printf("Trained Parameters: Status code = %d m = %f c = %f\n", t, m, c);
 }
@@ -226,7 +226,7 @@ void* drive_the_learning_framework()
 {
   status_code t;
   int f;
-  float b;
+  double b;
   do 
   {
     t = run_the_learning_framework();
@@ -252,7 +252,7 @@ struct private_training_data *read_csv_file(int n)
 
   struct private_training_data *ts;
   ts = xs;
-  float crime, nox;
+  double crime, nox;
   int i = 0;
   while(i < n)
   {
@@ -281,7 +281,7 @@ int main()
 {
   
   // initialize the data structures
-  float bud; // budget
+  double bud; // budget
   budget = &bud; // pointer to budget
   eps = 0.1; // epsilon
   refvalue = 1600000.0; // this is the value of the reference budget
@@ -299,15 +299,15 @@ int main()
 
   //xs = read_csv_file(n); 
 
-  float tmret; 
-  float cmret;
+  double tmret; 
+  double cmret;
   mret = &tmret;
   cret = &cmret;
-  float tm = 0.5;
-  float tc = 0.5;
+  double tm = 0.5;
+  double tc = 0.5;
   m = &tm; // we start with a value of m = 0.5
   c = &tc; // we start with a value of c = 0.5
-  float lrate = 0.1;
+  double lrate = 0.1;
   learning_rate = &lrate;
 
   // start the client
